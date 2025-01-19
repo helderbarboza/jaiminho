@@ -4,11 +4,15 @@ defmodule Jaiminho.LogisticsTest do
   alias Jaiminho.Logistics
 
   describe "locations" do
-    import Jaiminho.LogisticsFixtures
-
     test "get_location!/1 returns the location with given id" do
-      location = location_fixture()
+      location = create_location()
+
       assert Logistics.get_location!(location.id) == location
     end
+  end
+
+  defp create_location() do
+    {:ok, location} = Logistics.create_location(%{name: "location"})
+    location
   end
 end
