@@ -9,8 +9,8 @@ defmodule JaiminhoWeb.LocationControllerTest do
 
   describe "show" do
     test "renders a location", %{conn: conn} do
-      %{id: id} = create_location()
-      conn = get(conn, ~p"/api/locations/#{id}")
+      %{id: id} = location = create_location()
+      conn = get(conn, ~p"/api/locations/#{location}")
       assert %{"id" => ^id} = json_response(conn, 200)["data"]
     end
   end

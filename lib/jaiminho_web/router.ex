@@ -9,6 +9,8 @@ defmodule JaiminhoWeb.Router do
     pipe_through :api
 
     resources "/locations", LocationController, only: [:show]
+    resources "/parcels", ParcelController, only: [:show, :create]
+    post "/parcels/:id/transfer", ParcelController, :transfer
   end
 
   # Enable LiveDashboard in development
