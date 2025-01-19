@@ -7,6 +7,8 @@ defmodule JaiminhoWeb.Router do
 
   scope "/api", JaiminhoWeb do
     pipe_through :api
+
+    resources "/locations", LocationController, only: [:show]
   end
 
   # Enable LiveDashboard in development
