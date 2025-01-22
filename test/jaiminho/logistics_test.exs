@@ -31,7 +31,7 @@ defmodule Jaiminho.LogisticsTest do
   describe "parcels" do
     setup [:locations]
 
-    @invalid_attrs %{description: nil, is_delivered: nil}
+    @invalid_attrs %{description: nil}
 
     test "get_parcel_and_locations!/1 returns the parcel with given id", %{
       locations: [location_a, location_b | _]
@@ -90,8 +90,7 @@ defmodule Jaiminho.LogisticsTest do
     {:ok, parcel} =
       attrs
       |> Enum.into(%{
-        description: "My parcel",
-        is_delivered: false
+        description: "My parcel"
       })
       |> Logistics.create_parcel()
 
