@@ -10,6 +10,22 @@ defmodule Jaiminho.LogisticsTest do
 
       assert Logistics.get_location!(location.id) == location
     end
+
+    test "list_parcels_at_location/1 returns parcels currently at the location" do
+      location_a = create_location()
+      location_b = create_location()
+      location_c = create_location()
+      location_d = create_location()
+      parcel_a = create_parcel(%{source_id: location_a.id, destination_id: location_b.id})
+      parcel_b = create_parcel(%{source_id: location_b.id, destination_id: location_c.id})
+      parcel_d1 = create_parcel(%{source_id: location_d.id, destination_id: location_a.id})
+      parcel_d2 = create_parcel(%{source_id: location_d.id, destination_id: location_b.id})
+
+      assert [^parcel_a] = Logistics.list_parcels_at_location(location_a.id)
+      assert [^parcel_b] = Logistics.list_parcels_at_location(location_b.id)
+      assert [] = Logistics.list_parcels_at_location(location_c.id)
+      assert [^parcel_d1, ^parcel_d2] = Logistics.list_parcels_at_location(location_d.id)
+    end
   end
 
   describe "parcels" do
@@ -49,8 +65,6 @@ defmodule Jaiminho.LogisticsTest do
     test "create_parcel/1 with invalid data returns error changeset" do
       assert {:error, %Ecto.Changeset{}} = Logistics.create_parcel(@invalid_attrs)
     end
-
-    test "get_parcels_at_location/1 returns parcels currently at the location"
 
     test "transfer_parcel/2 with valid data transfers a parcel"
 

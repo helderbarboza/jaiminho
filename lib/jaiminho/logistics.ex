@@ -94,6 +94,24 @@ defmodule Jaiminho.Logistics do
     |> Repo.all()
   end
 
+  def list_parcels_at_location(location_id) do
+    parent_ids_query =
+      Movement
+      |> where([m], not is_nil(m.parent_id))
+      |> select([m], m.parent_id)
+
+    leaf_movements_query =
+      Movement
+      |> where([m], m.id not in subquery(parent_ids_query))
+
+    Parcel
+    |> with_cte("leaf_movements", as: ^leaf_movements_query)
+    |> join(:inner, [p], lm in {"leaf_movements", Movement}, on: p.id == lm.parcel_id)
+    |> where([p, lm], lm.to_location_id == ^location_id)
+    |> preload([:source, :destination])
+    |> Repo.all()
+  end
+
   @doc """
   Creates a parcel.
 
