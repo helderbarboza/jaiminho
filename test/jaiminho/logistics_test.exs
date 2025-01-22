@@ -72,7 +72,7 @@ defmodule Jaiminho.LogisticsTest do
     location
   end
 
-  defp create_parcel(attrs \\ %{}) do
+  defp create_parcel(attrs) do
     {:ok, parcel} =
       attrs
       |> Enum.into(%{
