@@ -15,7 +15,9 @@ defmodule Jaiminho.Logistics.Parcel do
   @doc false
   def changeset(parcel, attrs) do
     parcel
-    |> cast(attrs, [:description, :is_delivered, :source_id, :destination_id])
-    |> validate_required([:description])
+    |> cast(attrs, [:description, :source_id, :destination_id])
+    |> validate_required([:description, :source_id, :destination_id])
+    |> foreign_key_constraint(:source_id)
+    |> foreign_key_constraint(:destination_id)
   end
 end

@@ -4,6 +4,8 @@ defmodule Jaiminho.Logistics do
   """
 
   import Ecto.Query, warn: false
+  alias Ecto.Multi
+  alias Jaiminho.Logistics.Movement
   alias Jaiminho.Repo
 
   alias Jaiminho.Logistics.Location
@@ -73,9 +75,21 @@ defmodule Jaiminho.Logistics do
 
   """
   def create_parcel(attrs \\ %{}) do
-    %Parcel{}
-    |> Parcel.changeset(attrs)
-    |> Repo.insert()
+    case Repo.transaction(create_parcel_operations(attrs)) do
+      {:ok, %{parcel: parcel}} -> {:ok, parcel}
+      {:error, _, reason, _} -> {:error, reason}
+    end
+  end
+
+  defp create_parcel_operations(attrs) do
+    Multi.new()
+    |> Multi.insert(:parcel, Parcel.changeset(%Parcel{}, attrs))
+    |> Multi.insert(:movement, fn %{parcel: parcel} ->
+      Movement.root_node_changeset(%Movement{}, %{
+        parcel_id: parcel.id,
+        to_location_id: parcel.source_id
+      })
+    end)
   end
 
   @doc """
