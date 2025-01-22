@@ -60,7 +60,39 @@ defmodule Jaiminho.Logistics do
       ** (Ecto.NoResultsError)
 
   """
-  def get_parcel!(id), do: Repo.get!(Parcel, id)
+  def get_parcel!(id) do
+    Repo.get!(Parcel, id)
+  end
+
+  def get_parcel_and_locations!(id) do
+    Parcel
+    |> Repo.get!(id)
+    |> Repo.preload([:source, :destination])
+  end
+
+  def get_movements_from_parcel(parcel_id) do
+    parent_ids_query =
+      Movement
+      |> where([m], not is_nil(m.parent_id))
+      |> select([m], m.parent_id)
+
+    children_query =
+      Movement
+      |> where([m], m.id not in subquery(parent_ids_query))
+
+    recursion_query =
+      Movement
+      |> join(:inner, [m], mt in "movement_tree", on: mt.parent_id == m.id)
+
+    movement_tree_query = union_all(children_query, ^recursion_query)
+
+    {"movement_tree", Movement}
+    |> recursive_ctes(true)
+    |> with_cte("movement_tree", as: ^movement_tree_query)
+    |> where([m], m.parcel_id == ^parcel_id)
+    |> preload(:to_location)
+    |> Repo.all()
+  end
 
   @doc """
   Creates a parcel.
@@ -76,7 +108,7 @@ defmodule Jaiminho.Logistics do
   """
   def create_parcel(attrs \\ %{}) do
     case Repo.transaction(create_parcel_operations(attrs)) do
-      {:ok, %{parcel: parcel}} -> {:ok, parcel}
+      {:ok, %{parcel: parcel}} -> {:ok, Repo.preload(parcel, [:source, :destination])}
       {:error, _, reason, _} -> {:error, reason}
     end
   end

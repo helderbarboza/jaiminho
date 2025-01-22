@@ -3,10 +3,6 @@ defmodule JaiminhoWeb.ParcelControllerTest do
 
   alias Jaiminho.Logistics
 
-  @create_attrs %{
-    description: "some description",
-    is_delivered: true
-  }
   @invalid_attrs %{description: nil, is_delivered: nil}
 
   setup %{conn: conn} do
@@ -23,15 +19,34 @@ defmodule JaiminhoWeb.ParcelControllerTest do
 
   describe "create parcel" do
     test "renders parcel when data is valid", %{conn: conn} do
-      conn = post(conn, ~p"/api/parcels", parcel: @create_attrs)
+      %{id: source_id} = source = create_location(%{name: "São Paulo - SP"})
+      destination = create_location(%{name: "Rio de Janeiro - RJ"})
+
+      conn =
+        post(conn, ~p"/api/parcels",
+          parcel: %{
+            description: "Toothbrush",
+            source_id: source.id,
+            destination_id: destination.id
+          }
+        )
+
       assert %{"id" => id} = json_response(conn, 201)["data"]
 
       conn = get(conn, ~p"/api/parcels/#{id}")
 
       assert %{
                "id" => ^id,
-               "description" => "some description",
-               "is_delivered" => true
+               "description" => "Toothbrush",
+               "is_delivered" => false,
+               "movements" => [
+                 %{
+                   "location" => %{
+                     "id" => ^source_id,
+                     "name" => "São Paulo - SP"
+                   }
+                 }
+               ]
              } = json_response(conn, 200)["data"]
     end
 
@@ -41,8 +56,14 @@ defmodule JaiminhoWeb.ParcelControllerTest do
     end
   end
 
-  defp create_location() do
-    {:ok, location} = Logistics.create_location(%{name: "location"})
+  defp create_location(attrs \\ %{}) do
+    {:ok, location} =
+      attrs
+      |> Enum.into(%{
+        name: "My location"
+      })
+      |> Logistics.create_location()
+
     location
   end
 

@@ -17,7 +17,7 @@ defmodule Jaiminho.LogisticsTest do
 
     @invalid_attrs %{description: nil, is_delivered: nil}
 
-    test "get_parcel!/1 returns the parcel with given id", %{
+    test "get_parcel_and_locations!/1 returns the parcel with given id", %{
       locations: [location_a, location_b | _]
     } do
       parcel =
@@ -27,7 +27,7 @@ defmodule Jaiminho.LogisticsTest do
           destination_id: location_b.id
         })
 
-      assert Logistics.get_parcel!(parcel.id) == parcel
+      assert Logistics.get_parcel_and_locations!(parcel.id) == parcel
     end
 
     test "create_parcel/1 with valid data creates a parcel", %{
@@ -57,8 +57,7 @@ defmodule Jaiminho.LogisticsTest do
     test "transfer_parcel/2 on a parcel marked as delivered returns changeset error"
 
     test "change_parcel/1 returns a parcel changeset" do
-      parcel = create_parcel()
-      assert %Ecto.Changeset{} = Logistics.change_parcel(parcel)
+      assert %Ecto.Changeset{} = Logistics.change_parcel(%Parcel{}, %{})
     end
   end
 

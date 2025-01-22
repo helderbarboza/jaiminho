@@ -8,15 +8,18 @@ defmodule JaiminhoWeb.ParcelController do
 
   def create(conn, %{"parcel" => parcel_params}) do
     with {:ok, %Parcel{} = parcel} <- Logistics.create_parcel(parcel_params) do
+      movements = Logistics.get_movements_from_parcel(parcel.id)
+
       conn
       |> put_status(:created)
       |> put_resp_header("location", ~p"/api/parcels/#{parcel}")
-      |> render(:show, parcel: parcel)
+      |> render(:show, parcel: parcel, movements: movements)
     end
   end
 
   def show(conn, %{"id" => id}) do
-    parcel = Logistics.get_parcel!(id)
-    render(conn, :show, parcel: parcel)
+    parcel = Logistics.get_parcel_and_locations!(id)
+    movements = Logistics.get_movements_from_parcel(id)
+    render(conn, :show, parcel: parcel, movements: movements)
   end
 end
