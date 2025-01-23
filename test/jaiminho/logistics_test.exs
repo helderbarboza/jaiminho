@@ -1,4 +1,6 @@
 defmodule Jaiminho.LogisticsTest do
+  alias Jaiminho.Logistics.Location
+  alias Jaiminho.Logistics.Movement
   use Jaiminho.DataCase
 
   alias Jaiminho.Logistics
@@ -79,9 +81,35 @@ defmodule Jaiminho.LogisticsTest do
       assert {:error, %Ecto.Changeset{}} = Logistics.create_parcel(@invalid_attrs)
     end
 
-    test "transfer_parcel/2 with valid data transfers a parcel"
+    test "transfer_parcel/2 with valid data transfers a parcel", %{
+      locations: locations
+    } do
+      [source, destination | _] = locations
+      %Location{id: source_id} = source
+      %Location{id: destination_id} = destination
 
-    test "transfer_parcel/2 with to_location equals to the current location returns changeset error"
+      %Parcel{id: parcel_id} =
+        parcel = create_parcel(%{source_id: source_id, destination_id: destination_id})
+
+      assert %Parcel{is_delivered: false} = parcel
+      assert {:ok, parcel, movements} = Logistics.transfer_parcel(parcel_id, destination_id)
+
+      assert %Parcel{is_delivered: true} = parcel
+
+      assert [
+               %Movement{parcel_id: ^parcel_id, to_location_id: ^destination_id},
+               %Movement{parcel_id: ^parcel_id, to_location_id: ^source_id}
+             ] = movements
+    end
+
+    test "transfer_parcel/2 with to_location equals to the current location returns changeset error",
+         %{
+           locations: locations
+         } do
+      [location_a, location_b | _] = locations
+      parcel = create_parcel(%{source_id: location_a.id, destination_id: location_b.id})
+      assert {:error, _changeset} = Logistics.transfer_parcel(parcel.id, location_a.id)
+    end
 
     test "transfer_parcel/2 with a parcel marked as delivered returns changeset error", %{
       locations: locations
