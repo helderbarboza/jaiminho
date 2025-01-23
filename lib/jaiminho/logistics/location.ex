@@ -1,4 +1,7 @@
 defmodule Jaiminho.Logistics.Location do
+  @moduledoc """
+  A physical location where parcels can be shipped or delivered.
+  """
   use TypedEctoSchema
   import Ecto.Changeset
 
@@ -9,6 +12,7 @@ defmodule Jaiminho.Logistics.Location do
   end
 
   @doc false
+  @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(location, attrs) do
     location
     |> cast(attrs, [:name])

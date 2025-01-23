@@ -15,7 +15,7 @@ defmodule JaiminhoWeb.LocationControllerTest do
     end
   end
 
-  defp create_location() do
+  defp create_location do
     {:ok, location} = Logistics.create_location(%{name: "location"})
     location
   end

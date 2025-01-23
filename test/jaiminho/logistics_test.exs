@@ -1,10 +1,7 @@
 defmodule Jaiminho.LogisticsTest do
-  alias Jaiminho.Logistics.Location
-  alias Jaiminho.Logistics.Movement
   use Jaiminho.DataCase
-
   alias Jaiminho.Logistics
-  alias Jaiminho.Logistics.Parcel
+  alias Jaiminho.Logistics.{Location, Movement, Parcel}
 
   describe "locations" do
     test "get_location!/1 returns the location with given id" do

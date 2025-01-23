@@ -1,7 +1,11 @@
 defmodule Jaiminho.Logistics.Parcel do
-  alias Jaiminho.Logistics.Location
+  @moduledoc """
+  A package being transported with source/destination locations and delivery status.
+  """
+
   use TypedEctoSchema
   import Ecto.Changeset
+  alias Jaiminho.Logistics.Location
 
   typed_schema "parcels" do
     field :description, :string, null: false
@@ -13,20 +17,25 @@ defmodule Jaiminho.Logistics.Parcel do
   end
 
   @doc false
+  @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(parcel, attrs) do
     parcel
     |> cast(attrs, [:description, :source_id, :destination_id])
     |> validate_required([:description, :source_id, :destination_id])
-    |> then(fn changeset ->
-      validate_change(changeset, :destination_id, fn :destination_id, destination_id ->
-        if destination_id !== get_change(changeset, :source_id) do
-          []
-        else
-          [destination_id: {"must be not equal to %{key}'s change value", [key: :source_id]}]
-        end
-      end)
-    end)
+    |> validate_source_and_destination()
     |> foreign_key_constraint(:source_id)
     |> foreign_key_constraint(:destination_id)
+  end
+
+  defp validate_source_and_destination(changeset) do
+    source_id = get_change(changeset, :source_id)
+
+    validate_change(changeset, :destination_id, fn
+      :destination_id, ^source_id ->
+        [destination_id: {"must be not equal to %{key}'s change value", [key: :source_id]}]
+
+      :destination_id, _destination_id ->
+        []
+    end)
   end
 end

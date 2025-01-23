@@ -5,10 +5,8 @@ defmodule Jaiminho.Logistics do
 
   import Ecto.Query, warn: false
   alias Ecto.Multi
-  alias Jaiminho.Logistics.Movement
   alias Jaiminho.Repo
-
-  alias Jaiminho.Logistics.Location
+  alias Jaiminho.Logistics.{Location, Movement, Parcel}
 
   @doc """
   Gets a single location.
@@ -45,8 +43,6 @@ defmodule Jaiminho.Logistics do
     |> Location.changeset(attrs)
     |> Repo.insert()
   end
-
-  alias Jaiminho.Logistics.Parcel
 
   @doc """
   Gets a single parcel.
@@ -88,35 +84,6 @@ defmodule Jaiminho.Logistics do
     |> Repo.one()
   end
 
-  defp movements_of_parcel_query(parcel_id) do
-    parent_ids_query =
-      Movement
-      |> where([m], not is_nil(m.parent_id))
-      |> select([m], m.parent_id)
-
-    children_query =
-      Movement
-      |> where([m], m.id not in subquery(parent_ids_query))
-
-    recursion_query =
-      Movement
-      |> join(:inner, [m], mt in "movement_tree", on: mt.parent_id == m.id)
-
-    movement_tree_query = union_all(children_query, ^recursion_query)
-
-    {"movement_tree", Movement}
-    |> recursive_ctes(true)
-    |> with_cte("movement_tree", as: ^movement_tree_query)
-    |> where([m], m.parcel_id == ^parcel_id)
-    |> preload(:to_location)
-  end
-
-  defp latest_movement_of_parcel_query(parcel_id) do
-    parcel_id
-    |> movements_of_parcel_query()
-    |> last()
-  end
-
   @spec list_parcels_at_location(pos_integer()) :: [Parcel.t()]
   def list_parcels_at_location(location_id) do
     parent_ids_query =
@@ -125,8 +92,7 @@ defmodule Jaiminho.Logistics do
       |> select([m], m.parent_id)
 
     leaf_movements_query =
-      Movement
-      |> where([m], m.id not in subquery(parent_ids_query))
+      where(Movement, [m], m.id not in subquery(parent_ids_query))
 
     Parcel
     |> with_cte("leaf_movements", as: ^leaf_movements_query)
@@ -157,17 +123,6 @@ defmodule Jaiminho.Logistics do
     end
   end
 
-  defp create_parcel_operations(attrs) do
-    Multi.new()
-    |> Multi.insert(:parcel, Parcel.changeset(%Parcel{}, attrs))
-    |> Multi.insert(:movement, fn %{parcel: parcel} ->
-      Movement.root_node_changeset(%Movement{}, %{
-        parcel_id: parcel.id,
-        to_location_id: parcel.source_id
-      })
-    end)
-  end
-
   @spec transfer_parcel(pos_integer(), pos_integer()) ::
           {:error, any()} | {:ok, Parcel.t(), [Movement.t()]}
   def transfer_parcel(parcel_id, to_location_id) do
@@ -178,6 +133,20 @@ defmodule Jaiminho.Logistics do
       {:error, _, reason, _} ->
         {:error, reason}
     end
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for tracking parcel changes.
+
+  ## Examples
+
+      iex> change_parcel(parcel)
+      %Ecto.Changeset{data: %Parcel{}}
+
+  """
+  @spec change_parcel(Parcel.t(), map()) :: Ecto.Changeset.t()
+  def change_parcel(%Parcel{} = parcel, attrs \\ %{}) do
+    Parcel.changeset(parcel, attrs)
   end
 
   defp transfer_parcel_operations(parcel_id, to_location_id) do
@@ -234,17 +203,41 @@ defmodule Jaiminho.Logistics do
     |> Multi.all(:movements, movements_of_parcel_query(parcel_id))
   end
 
-  @doc """
-  Returns an `%Ecto.Changeset{}` for tracking parcel changes.
+  defp create_parcel_operations(attrs) do
+    Multi.new()
+    |> Multi.insert(:parcel, Parcel.changeset(%Parcel{}, attrs))
+    |> Multi.insert(:movement, fn %{parcel: parcel} ->
+      Movement.root_node_changeset(%Movement{}, %{
+        parcel_id: parcel.id,
+        to_location_id: parcel.source_id
+      })
+    end)
+  end
 
-  ## Examples
+  defp latest_movement_of_parcel_query(parcel_id) do
+    parcel_id
+    |> movements_of_parcel_query()
+    |> last()
+  end
 
-      iex> change_parcel(parcel)
-      %Ecto.Changeset{data: %Parcel{}}
+  defp movements_of_parcel_query(parcel_id) do
+    parent_ids_query =
+      Movement
+      |> where([m], not is_nil(m.parent_id))
+      |> select([m], m.parent_id)
 
-  """
-  @spec change_parcel(Parcel.t(), map()) :: Ecto.Changeset.t()
-  def change_parcel(%Parcel{} = parcel, attrs \\ %{}) do
-    Parcel.changeset(parcel, attrs)
+    children_query =
+      where(Movement, [m], m.id not in subquery(parent_ids_query))
+
+    recursion_query =
+      join(Movement, :inner, [m], mt in "movement_tree", on: mt.parent_id == m.id)
+
+    movement_tree_query = union_all(children_query, ^recursion_query)
+
+    {"movement_tree", Movement}
+    |> recursive_ctes(true)
+    |> with_cte("movement_tree", as: ^movement_tree_query)
+    |> where([m], m.parcel_id == ^parcel_id)
+    |> preload(:to_location)
   end
 end

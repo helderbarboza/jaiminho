@@ -1,4 +1,8 @@
 defmodule Jaiminho.Logistics.Movement do
+  @moduledoc """
+  A graph node tracking parcel location changes.
+  """
+
   use TypedEctoSchema
   import Ecto.Changeset
   alias Jaiminho.Logistics.Location
@@ -14,11 +18,13 @@ defmodule Jaiminho.Logistics.Movement do
   end
 
   @doc false
+  @spec root_node_changeset(t(), map()) :: Ecto.Changeset.t()
   def root_node_changeset(movement, attrs) do
     base_changeset(movement, attrs)
   end
 
   @doc false
+  @spec descendant_node_changeset(t(), map()) :: Ecto.Changeset.t()
   def descendant_node_changeset(movement, attrs) do
     movement
     |> base_changeset(attrs)
