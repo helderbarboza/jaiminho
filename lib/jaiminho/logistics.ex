@@ -70,7 +70,19 @@ defmodule Jaiminho.Logistics do
     |> Repo.preload([:source, :destination])
   end
 
-  def get_movements_from_parcel(parcel_id) do
+  def list_movements_of_parcel(parcel_id) do
+    parcel_id
+    |> movements_of_parcel_query()
+    |> Repo.all()
+  end
+
+  def get_latest_movement_of_parcel(parcel_id) do
+    parcel_id
+    |> latest_movement_of_parcel_query()
+    |> Repo.one()
+  end
+
+  defp movements_of_parcel_query(parcel_id) do
     parent_ids_query =
       Movement
       |> where([m], not is_nil(m.parent_id))
@@ -91,7 +103,12 @@ defmodule Jaiminho.Logistics do
     |> with_cte("movement_tree", as: ^movement_tree_query)
     |> where([m], m.parcel_id == ^parcel_id)
     |> preload(:to_location)
-    |> Repo.all()
+  end
+
+  defp latest_movement_of_parcel_query(parcel_id) do
+    parcel_id
+    |> movements_of_parcel_query()
+    |> last()
   end
 
   def list_parcels_at_location(location_id) do
@@ -140,6 +157,70 @@ defmodule Jaiminho.Logistics do
         to_location_id: parcel.source_id
       })
     end)
+  end
+
+  def transfer_parcel(parcel_id, to_location_id) do
+    case Repo.transaction(transfer_parcel_operations(parcel_id, to_location_id)) do
+      {:ok, %{updated_parcel: parcel, movements: movements}} ->
+        {:ok, Repo.preload(parcel, [:source, :destination]), movements}
+
+      {:error, _, reason, _} ->
+        {:error, reason}
+    end
+  end
+
+  defp transfer_parcel_operations(parcel_id, to_location_id) do
+    Multi.new()
+    |> Multi.run(:parcel, fn repo, _changes ->
+      case repo.get(Parcel, parcel_id) do
+        nil -> {:error, :not_found}
+        parcel -> {:ok, parcel}
+      end
+    end)
+    |> Multi.run(:parcel_is_delivered, fn
+      _repo, %{parcel: %Parcel{is_delivered: true}} -> {:error, :already_delivered}
+      _repo, _changes -> {:ok, nil}
+    end)
+    |> Multi.run(:to_location, fn repo, _changes ->
+      case repo.get(Location, to_location_id) do
+        nil -> {:error, :not_found}
+        location -> {:ok, location}
+      end
+    end)
+    |> Multi.run(:latest_movement, fn repo, _ ->
+      parcel_id
+      |> latest_movement_of_parcel_query()
+      |> repo.one()
+      |> case do
+        nil -> {:error, :not_found}
+        movement -> {:ok, movement}
+      end
+    end)
+    |> Multi.run(:current_location, fn
+      _repo, %{latest_movement: %{to_location_id: current_location_id}} ->
+        if current_location_id !== to_location_id do
+          {:ok, nil}
+        else
+          {:error, :to_location_and_current_location_must_be_different}
+        end
+    end)
+    |> Multi.insert(:new_movement, fn %{latest_movement: %{id: parent_id}} ->
+      Movement.descendant_node_changeset(%Movement{}, %{
+        parent_id: parent_id,
+        parcel_id: parcel_id,
+        to_location_id: to_location_id
+      })
+    end)
+    |> Multi.run(:updated_parcel, fn repo, %{parcel: parcel} ->
+      if parcel.destination_id === to_location_id do
+        parcel
+        |> Ecto.Changeset.change(is_delivered: true)
+        |> repo.update()
+      else
+        {:ok, parcel}
+      end
+    end)
+    |> Multi.all(:movements, movements_of_parcel_query(parcel_id))
   end
 
   @doc """

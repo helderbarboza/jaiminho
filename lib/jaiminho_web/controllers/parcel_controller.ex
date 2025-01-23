@@ -8,7 +8,7 @@ defmodule JaiminhoWeb.ParcelController do
 
   def create(conn, %{"parcel" => parcel_params}) do
     with {:ok, %Parcel{} = parcel} <- Logistics.create_parcel(parcel_params) do
-      movements = Logistics.get_movements_from_parcel(parcel.id)
+      movements = Logistics.list_movements_of_parcel(parcel.id)
 
       conn
       |> put_status(:created)
@@ -19,7 +19,13 @@ defmodule JaiminhoWeb.ParcelController do
 
   def show(conn, %{"id" => id}) do
     parcel = Logistics.get_parcel_and_locations!(id)
-    movements = Logistics.get_movements_from_parcel(id)
+    movements = Logistics.list_movements_of_parcel(id)
     render(conn, :show, parcel: parcel, movements: movements)
+  end
+
+  def transfer(conn, %{"id" => id, "location_id" => location_id}) do
+    with {:ok, %Parcel{} = parcel, movements} <- Logistics.transfer_parcel(id, location_id) do
+      render(conn, :show, parcel: parcel, movements: movements)
+    end
   end
 end

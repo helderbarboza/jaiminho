@@ -46,9 +46,9 @@ defmodule Jaiminho.LogisticsTest do
       assert Logistics.get_parcel_and_locations!(parcel.id) == parcel
     end
 
-    test "create_parcel/1 with valid data creates a parcel", %{
-      locations: [location_a, location_b | _]
-    } do
+    test "create_parcel/1 with valid data creates a parcel", %{locations: locations} do
+      [location_a, location_b | _] = locations
+
       attrs = %{
         description: "Paper Towels",
         source_id: location_a.id,
@@ -83,7 +83,18 @@ defmodule Jaiminho.LogisticsTest do
 
     test "transfer_parcel/2 with to_location equals to the current location returns changeset error"
 
-    test "transfer_parcel/2 on a parcel marked as delivered returns changeset error"
+    test "transfer_parcel/2 with a parcel marked as delivered returns changeset error", %{
+      locations: locations
+    } do
+      [location_a, location_b, location_c | _] = locations
+      parcel = create_parcel(%{source_id: location_a.id, destination_id: location_b.id})
+      assert %Parcel{is_delivered: false} = parcel
+
+      assert {:ok, %Parcel{is_delivered: true}, _movements} =
+               Logistics.transfer_parcel(parcel.id, location_b.id)
+
+      assert {:error, _changeset} = Logistics.transfer_parcel(parcel.id, location_c.id)
+    end
 
     test "change_parcel/1 returns a parcel changeset" do
       assert %Ecto.Changeset{} = Logistics.change_parcel(%Parcel{}, %{})
