@@ -24,6 +24,7 @@ defmodule Jaiminho.Logistics do
       ** (Ecto.NoResultsError)
 
   """
+  @spec get_location!(pos_integer()) :: Location.t()
   def get_location!(id), do: Repo.get!(Location, id)
 
   @doc """
@@ -38,6 +39,7 @@ defmodule Jaiminho.Logistics do
       {:error, %Ecto.Changeset{}}
 
   """
+  @spec create_location() :: {:ok, Location.t()} | {:error, Ecto.Changeset.t()}
   def create_location(attrs \\ %{}) do
     %Location{}
     |> Location.changeset(attrs)
@@ -60,22 +62,26 @@ defmodule Jaiminho.Logistics do
       ** (Ecto.NoResultsError)
 
   """
+  @spec get_parcel!(pos_integer()) :: Parcel.t()
   def get_parcel!(id) do
     Repo.get!(Parcel, id)
   end
 
+  @spec get_parcel_and_locations!(pos_integer()) :: Parcel.t()
   def get_parcel_and_locations!(id) do
     Parcel
     |> Repo.get!(id)
     |> Repo.preload([:source, :destination])
   end
 
+  @spec list_movements_of_parcel(pos_integer()) :: [Movement.t()]
   def list_movements_of_parcel(parcel_id) do
     parcel_id
     |> movements_of_parcel_query()
     |> Repo.all()
   end
 
+  @spec get_latest_movement_of_parcel(pos_integer()) :: Movement.t()
   def get_latest_movement_of_parcel(parcel_id) do
     parcel_id
     |> latest_movement_of_parcel_query()
@@ -111,6 +117,7 @@ defmodule Jaiminho.Logistics do
     |> last()
   end
 
+  @spec list_parcels_at_location(pos_integer()) :: [Parcel.t()]
   def list_parcels_at_location(location_id) do
     parent_ids_query =
       Movement
@@ -141,7 +148,9 @@ defmodule Jaiminho.Logistics do
       {:error, %Ecto.Changeset{}}
 
   """
-  def create_parcel(attrs \\ %{}) do
+
+  @spec create_parcel(map()) :: {:error, any()} | {:ok, Parcel.t()}
+  def create_parcel(attrs) do
     case Repo.transaction(create_parcel_operations(attrs)) do
       {:ok, %{parcel: parcel}} -> {:ok, Repo.preload(parcel, [:source, :destination])}
       {:error, _, reason, _} -> {:error, reason}
@@ -159,6 +168,8 @@ defmodule Jaiminho.Logistics do
     end)
   end
 
+  @spec transfer_parcel(pos_integer(), pos_integer()) ::
+          {:error, any()} | {:ok, Parcel.t(), [Movement.t()]}
   def transfer_parcel(parcel_id, to_location_id) do
     case Repo.transaction(transfer_parcel_operations(parcel_id, to_location_id)) do
       {:ok, %{updated_parcel: parcel, movements: movements}} ->
@@ -232,6 +243,7 @@ defmodule Jaiminho.Logistics do
       %Ecto.Changeset{data: %Parcel{}}
 
   """
+  @spec change_parcel(Parcel.t(), map()) :: Ecto.Changeset.t()
   def change_parcel(%Parcel{} = parcel, attrs \\ %{}) do
     Parcel.changeset(parcel, attrs)
   end

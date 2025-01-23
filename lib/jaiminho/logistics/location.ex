@@ -1,9 +1,9 @@
 defmodule Jaiminho.Logistics.Location do
-  use Ecto.Schema
+  use TypedEctoSchema
   import Ecto.Changeset
 
-  schema "locations" do
-    field :name, :string
+  typed_schema "locations" do
+    field :name, :string, null: false
 
     timestamps(type: :utc_datetime)
   end

@@ -1,10 +1,10 @@
 defmodule Jaiminho.Logistics.Parcel do
   alias Jaiminho.Logistics.Location
-  use Ecto.Schema
+  use TypedEctoSchema
   import Ecto.Changeset
 
-  schema "parcels" do
-    field :description, :string
+  typed_schema "parcels" do
+    field :description, :string, null: false
     field :is_delivered, :boolean, default: false
     belongs_to :source, Location
     belongs_to :destination, Location

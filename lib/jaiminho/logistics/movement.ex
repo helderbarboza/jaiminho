@@ -1,10 +1,10 @@
 defmodule Jaiminho.Logistics.Movement do
-  use Ecto.Schema
+  use TypedEctoSchema
   import Ecto.Changeset
   alias Jaiminho.Logistics.Location
   alias Jaiminho.Logistics.Parcel
 
-  schema "movements" do
+  typed_schema "movements" do
     belongs_to :parcel, Parcel
     belongs_to :parent, __MODULE__, foreign_key: :parent_id, references: :id
     has_one :child, __MODULE__, foreign_key: :parent_id, references: :id
