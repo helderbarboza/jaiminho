@@ -60,7 +60,20 @@ defmodule Jaiminho.LogisticsTest do
       assert parcel.is_delivered == false
     end
 
-    test "create_parcel/1 with source equals to destination returns changeset error"
+    test "create_parcel/1 with destination equals to source returns changeset error", %{
+      locations: locations
+    } do
+      [location | _] = locations
+
+      attrs = %{
+        description: "Illegal parcel",
+        source_id: location.id,
+        destination_id: location.id
+      }
+
+      assert {:error, %Ecto.Changeset{errors: [destination_id: _]}} =
+               Logistics.create_parcel(attrs)
+    end
 
     test "create_parcel/1 with invalid data returns error changeset" do
       assert {:error, %Ecto.Changeset{}} = Logistics.create_parcel(@invalid_attrs)

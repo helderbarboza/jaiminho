@@ -17,6 +17,15 @@ defmodule Jaiminho.Logistics.Parcel do
     parcel
     |> cast(attrs, [:description, :source_id, :destination_id])
     |> validate_required([:description, :source_id, :destination_id])
+    |> then(fn changeset ->
+      validate_change(changeset, :destination_id, fn :destination_id, destination_id ->
+        if destination_id !== get_change(changeset, :source_id) do
+          []
+        else
+          [destination_id: {"must be not equal to %{key}'s change value", [key: :source_id]}]
+        end
+      end)
+    end)
     |> foreign_key_constraint(:source_id)
     |> foreign_key_constraint(:destination_id)
   end
