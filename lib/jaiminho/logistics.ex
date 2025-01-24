@@ -44,27 +44,8 @@ defmodule Jaiminho.Logistics do
     |> Repo.insert()
   end
 
-  @doc """
-  Gets a single parcel.
-
-  Raises `Ecto.NoResultsError` if the Parcel does not exist.
-
-  ## Examples
-
-      iex> get_parcel!(123)
-      %Parcel{}
-
-      iex> get_parcel!(456)
-      ** (Ecto.NoResultsError)
-
-  """
   @spec get_parcel!(pos_integer()) :: Parcel.t()
   def get_parcel!(id) do
-    Repo.get!(Parcel, id)
-  end
-
-  @spec get_parcel_and_locations!(pos_integer()) :: Parcel.t()
-  def get_parcel_and_locations!(id) do
     Parcel
     |> Repo.get!(id)
     |> Repo.preload([:source, :destination])
@@ -75,13 +56,6 @@ defmodule Jaiminho.Logistics do
     parcel_id
     |> movements_of_parcel_query()
     |> Repo.all()
-  end
-
-  @spec get_latest_movement_of_parcel(pos_integer()) :: Movement.t()
-  def get_latest_movement_of_parcel(parcel_id) do
-    parcel_id
-    |> latest_movement_of_parcel_query()
-    |> Repo.one()
   end
 
   @spec list_parcels_at_location(pos_integer()) :: [Parcel.t()]
@@ -152,10 +126,9 @@ defmodule Jaiminho.Logistics do
   defp transfer_parcel_operations(parcel_id, to_location_id) do
     Multi.new()
     |> Multi.run(:parcel, fn repo, _changes ->
-      case repo.get(Parcel, parcel_id) do
-        nil -> {:error, :not_found}
-        parcel -> {:ok, parcel}
-      end
+      parcel = repo.get(Parcel, parcel_id)
+
+      {:ok, parcel}
     end)
     |> Multi.run(:parcel_is_delivered, fn
       _repo, %{parcel: %Parcel{is_delivered: true}} -> {:error, :already_delivered}
@@ -163,18 +136,17 @@ defmodule Jaiminho.Logistics do
     end)
     |> Multi.run(:to_location, fn repo, _changes ->
       case repo.get(Location, to_location_id) do
-        nil -> {:error, :not_found}
+        nil -> {:error, :to_location_not_found}
         location -> {:ok, location}
       end
     end)
     |> Multi.run(:latest_movement, fn repo, _ ->
-      parcel_id
-      |> latest_movement_of_parcel_query()
-      |> repo.one()
-      |> case do
-        nil -> {:error, :not_found}
-        movement -> {:ok, movement}
-      end
+      movement =
+        parcel_id
+        |> latest_movement_of_parcel_query()
+        |> repo.one()
+
+      {:ok, movement}
     end)
     |> Multi.run(:current_location, fn
       _repo, %{latest_movement: %{to_location_id: current_location_id}} ->
