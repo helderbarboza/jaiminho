@@ -22,6 +22,7 @@ defmodule Jaiminho.Logistics.Parcel do
     parcel
     |> cast(attrs, [:description, :source_id, :destination_id])
     |> validate_required([:description, :source_id, :destination_id])
+    |> validate_length(:description, min: 2, max: 128)
     |> validate_source_and_destination()
     |> foreign_key_constraint(:source_id)
     |> foreign_key_constraint(:destination_id)

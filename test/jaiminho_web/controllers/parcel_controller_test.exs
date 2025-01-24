@@ -12,10 +12,68 @@ defmodule JaiminhoWeb.ParcelControllerTest do
   describe "show" do
     setup [:locations]
 
-    test "renders a parcel", %{conn: conn} do
-      %{id: id} = parcel = create_parcel()
+    test "renders a parcel", %{conn: conn, locations: [source, destination | _]} do
+      %{id: parcel_id} =
+        parcel =
+        create_parcel(%{
+          description: "Chair",
+          source_id: source.id,
+          destination_id: destination.id
+        })
+
+      %{id: source_id, name: source_name} = source
+      %{id: destination_id, name: destination_name} = destination
+
       conn = get(conn, ~p"/api/parcels/#{parcel}")
-      assert %{"id" => ^id} = json_response(conn, 200)["data"]
+
+      assert %{
+               "id" => ^parcel_id,
+               "description" => "Chair",
+               "is_delivered" => false,
+               "movements" => [
+                 %{
+                   "location" => %{"id" => ^source_id, "name" => ^source_name},
+                   "transfered_at" => _timestamp
+                 }
+               ],
+               "source" => %{"id" => ^source_id, "name" => ^source_name},
+               "destination" => %{"id" => ^destination_id, "name" => ^destination_name}
+             } = json_response(conn, 200)["data"]
+    end
+
+    test "returns correct response when parcel is delivered",
+         %{conn: conn, locations: [location_a, location_b | _]} do
+      %{id: parcel_id} =
+        parcel =
+        create_parcel(%{source_id: location_a.id, destination_id: location_b.id})
+
+      {_parcel, _movements} = transfer_parcel(parcel.id, location_b.id)
+      conn = get(conn, ~p"/api/parcels/#{parcel}")
+      assert %{"id" => ^parcel_id, "is_delivered" => true} = json_response(conn, 200)["data"]
+    end
+
+    test "returns parcel with a single movement when no transfers are made",
+         %{conn: conn, locations: [location_a, location_b | _]} do
+      %{id: parcel_id} =
+        parcel =
+        create_parcel(%{source_id: location_a.id, destination_id: location_b.id})
+
+      conn = get(conn, ~p"/api/parcels/#{parcel}")
+
+      assert %{"id" => ^parcel_id, "is_delivered" => false, "movements" => [_movement]} =
+               json_response(conn, 200)["data"]
+    end
+
+    test "returns 404 when parcel does not exist", %{conn: conn} do
+      assert_error_sent 404, fn ->
+        get(conn, ~p"/api/parcels/#{0}")
+      end
+    end
+
+    test "renders errors when the parcel ID is not an integer", %{conn: conn} do
+      assert_error_sent 400, fn ->
+        get(conn, ~p"/api/parcels/foo")
+      end
     end
 
     test "renders a parcel with associated movements ordered", %{conn: conn} do
@@ -34,6 +92,7 @@ defmodule JaiminhoWeb.ParcelControllerTest do
 
       assert %{
                "id" => ^parcel_id,
+               "is_delivered" => true,
                "movements" => [
                  %{"location" => %{"id" => ^location_a_id}},
                  %{"location" => %{"id" => ^location_b_id}},
@@ -43,10 +102,8 @@ defmodule JaiminhoWeb.ParcelControllerTest do
                json_response(conn, 200)["data"]
     end
 
-    test "renders a parcel with cyclic paths", %{
-      conn: conn,
-      locations: [location_a, location_b, location_c, location_d | _]
-    } do
+    test "renders a parcel with cyclic paths",
+         %{conn: conn, locations: [location_a, location_b, location_c, location_d | _]} do
       %{id: location_a_id} = location_a
       %{id: location_b_id} = location_b
       %{id: location_c_id} = location_c
@@ -107,9 +164,23 @@ defmodule JaiminhoWeb.ParcelControllerTest do
              } = json_response(conn, 201)["data"]
     end
 
-    test "renders errors when the 'source' and 'destination' locations are the same", %{
-      conn: conn
-    } do
+    test "ensures parcels with identical source and destination IDs but different descriptions are created as separate entities",
+         %{conn: conn, locations: [source, destination | _]} do
+      parcel_params = %{source_id: source.id, destination_id: destination.id}
+
+      conn = post(conn, ~p"/api/parcels", parcel: Map.put(parcel_params, :description, "TV"))
+      assert parcel_a = json_response(conn, 201)["data"]
+      assert parcel_a["description"] == "TV"
+
+      conn = post(conn, ~p"/api/parcels", parcel: Map.put(parcel_params, :description, "Piano"))
+      assert parcel_b = json_response(conn, 201)["data"]
+      assert parcel_b["description"] == "Piano"
+
+      assert parcel_a["id"] != parcel_b["id"]
+    end
+
+    test "renders errors when 'source' and 'destination' locations are the same",
+         %{conn: conn} do
       %{id: location_id} = create_location()
 
       conn =
@@ -117,68 +188,125 @@ defmodule JaiminhoWeb.ParcelControllerTest do
           parcel: %{source_id: location_id, destination_id: location_id, description: "Bookcase"}
         )
 
-      body = json_response(conn, 422)
-      assert "must be not equal to source_id's change value" in body["errors"]["destination_id"]
+      errors = json_response(conn, 422)["errors"]
+      assert "must be not equal to source_id's change value" in errors["destination_id"]
     end
 
-    test "renders errors when the 'source' location doesn't exist", %{
-      conn: conn,
-      locations: [destination | _]
-    } do
+    test "renders errors when 'source' location doesn't exist",
+         %{conn: conn, locations: [destination | _]} do
       conn =
         post(conn, ~p"/api/parcels",
           parcel: %{source_id: 0, destination_id: destination.id, description: "Jukebox"}
         )
 
-      assert json_response(conn, 422)["errors"]["source_id"] != []
+      errors = json_response(conn, 422)["errors"]
+      assert "does not exist" in errors["source_id"]
     end
 
-    test "renders errors when the 'destination' location doesn't exist", %{
-      conn: conn,
-      locations: [source | _]
-    } do
+    test "renders errors when 'destination' location doesn't exist",
+         %{conn: conn, locations: [source | _]} do
       conn =
         post(conn, ~p"/api/parcels",
           parcel: %{destination_id: 0, source_id: source.id, description: "Gramophone"}
         )
 
-      assert json_response(conn, 422)["errors"]["destination_id"] != []
+      errors = json_response(conn, 422)["errors"]
+      assert "does not exist" in errors["destination_id"]
     end
 
-    test "renders errors when the 'source' is missing", %{
-      conn: conn,
-      locations: [destination | _]
-    } do
+    test "renders errors when 'source' is missing",
+         %{conn: conn, locations: [destination | _]} do
       conn =
         post(conn, ~p"/api/parcels",
           parcel: %{destination_id: destination.id, description: "Coffee table"}
         )
 
-      assert json_response(conn, 422)["errors"]["source_id"] != []
+      errors = json_response(conn, 422)["errors"]
+      assert "can't be blank" in errors["source_id"]
     end
 
-    test "renders errors when the 'destination' is missing", %{
-      conn: conn,
-      locations: [source | _]
-    } do
+    test "renders errors when 'destination' is missing",
+         %{conn: conn, locations: [source | _]} do
       conn =
         post(conn, ~p"/api/parcels",
           parcel: %{source_id: source.id, description: "Pinball machine"}
         )
 
-      assert json_response(conn, 422)["errors"]["destination_id"] != []
+      errors = json_response(conn, 422)["errors"]
+      assert "can't be blank" in errors["destination_id"]
     end
 
-    test "renders errors when 'description' is missing", %{
-      conn: conn,
-      locations: [source, destination | _]
-    } do
+    test "renders errors when 'description' is missing",
+         %{conn: conn, locations: [source, destination | _]} do
       conn =
         post(conn, ~p"/api/parcels",
           parcel: %{source_id: source.id, destination_id: destination.id}
         )
 
-      assert json_response(conn, 422)["errors"]["description"] != []
+      errors = json_response(conn, 422)["errors"]
+      assert "can't be blank" in errors["description"]
+    end
+
+    test "renders errors when 'description' is empty",
+         %{conn: conn, locations: [source, destination | _]} do
+      conn =
+        post(conn, ~p"/api/parcels",
+          parcel: %{source_id: source.id, destination_id: destination.id, description: ""}
+        )
+
+      errors = json_response(conn, 422)["errors"]
+      assert "can't be blank" in errors["description"]
+    end
+
+    test "renders errors when 'description' is too short",
+         %{conn: conn, locations: [source, destination | _]} do
+      conn =
+        post(conn, ~p"/api/parcels",
+          parcel: %{
+            source_id: source.id,
+            destination_id: destination.id,
+            description: "x"
+          }
+        )
+
+      errors = json_response(conn, 422)["errors"]
+      assert "should be at least 2 character(s)" in errors["description"]
+    end
+
+    test "renders errors when 'description' is too long",
+         %{conn: conn, locations: [source, destination | _]} do
+      conn =
+        post(conn, ~p"/api/parcels",
+          parcel: %{
+            source_id: source.id,
+            destination_id: destination.id,
+            description: String.duplicate("x", 1000)
+          }
+        )
+
+      errors = json_response(conn, 422)["errors"]
+      assert "should be at most 128 character(s)" in errors["description"]
+    end
+
+    test "renders errors when 'description' is invalid",
+         %{conn: conn, locations: [source, destination | _]} do
+      conn =
+        post(conn, ~p"/api/parcels",
+          parcel: %{
+            source_id: source.id,
+            destination_id: destination.id,
+            description: 123
+          }
+        )
+
+      errors = json_response(conn, 422)["errors"]
+      assert "is invalid" in errors["description"]
+    end
+
+    test "renders errors when no JSON body is sent", %{conn: conn} do
+      assert_error_sent 400, fn ->
+        post(conn, ~p"/api/parcels")
+      end
     end
 
     test "renders errors when data is invalid", %{conn: conn} do
@@ -214,14 +342,11 @@ defmodule JaiminhoWeb.ParcelControllerTest do
     end
   end
 
-  defp create_parcel(attrs \\ %{}) do
+  defp create_parcel(attrs) do
     {:ok, parcel} =
       attrs
       |> Enum.into(%{
-        description: "my parcel",
-        is_delivered: false,
-        source_id: create_location().id,
-        destination_id: create_location().id
+        description: "my parcel"
       })
       |> Logistics.create_parcel()
 
