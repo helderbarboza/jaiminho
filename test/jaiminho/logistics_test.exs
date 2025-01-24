@@ -121,6 +121,15 @@ defmodule Jaiminho.LogisticsTest do
       assert {:error, _changeset} = Logistics.transfer_parcel(parcel.id, location_c.id)
     end
 
+    test "transfer_parcel/2 using a non existing location returns error", %{
+      locations: locations
+    } do
+      [location_a, location_b | _] = locations
+      parcel = create_parcel(%{source_id: location_a.id, destination_id: location_b.id})
+
+      assert {:error, :to_location_not_found} = Logistics.transfer_parcel(parcel.id, 0)
+    end
+
     test "change_parcel/1 returns a parcel changeset" do
       assert %Ecto.Changeset{} = Logistics.change_parcel(%Parcel{}, %{})
     end
