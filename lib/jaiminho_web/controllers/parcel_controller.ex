@@ -18,7 +18,7 @@ defmodule JaiminhoWeb.ParcelController do
   end
 
   def show(conn, %{"id" => id}) do
-    parcel = Logistics.get_parcel_and_locations!(id)
+    parcel = Logistics.get_parcel!(id)
     movements = Logistics.list_movements_of_parcel(id)
     render(conn, :show, parcel: parcel, movements: movements)
   end

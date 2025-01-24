@@ -32,7 +32,7 @@ defmodule Jaiminho.LogisticsTest do
 
     @invalid_attrs %{description: nil}
 
-    test "get_parcel_and_locations!/1 returns the parcel with given id", %{
+    test "get_parcel!/1 returns the parcel with given id", %{
       locations: [location_a, location_b | _]
     } do
       parcel =
@@ -42,7 +42,7 @@ defmodule Jaiminho.LogisticsTest do
           destination_id: location_b.id
         })
 
-      assert Logistics.get_parcel_and_locations!(parcel.id) == parcel
+      assert Logistics.get_parcel!(parcel.id) == parcel
     end
 
     test "create_parcel/1 with valid data creates a parcel", %{locations: locations} do
@@ -94,8 +94,8 @@ defmodule Jaiminho.LogisticsTest do
       assert %Parcel{is_delivered: true} = parcel
 
       assert [
-               %Movement{parcel_id: ^parcel_id, to_location_id: ^destination_id},
-               %Movement{parcel_id: ^parcel_id, to_location_id: ^source_id}
+               %Movement{parcel_id: ^parcel_id, to_location_id: ^source_id},
+               %Movement{parcel_id: ^parcel_id, to_location_id: ^destination_id}
              ] = movements
     end
 

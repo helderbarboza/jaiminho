@@ -15,6 +15,34 @@ defmodule JaiminhoWeb.ParcelControllerTest do
       conn = get(conn, ~p"/api/parcels/#{parcel}")
       assert %{"id" => ^id} = json_response(conn, 200)["data"]
     end
+
+    test "renders a parcel with associated movements ordered", %{conn: conn} do
+      %{id: location_a_id} = location_a = create_location(%{name: "Location A"})
+      %{id: location_b_id} = location_b = create_location(%{name: "Location B"})
+
+      %{id: parcel_id} =
+        parcel =
+        create_parcel(%{
+          description: "Toaster",
+          source_id: location_a.id,
+          destination_id: location_b.id
+        })
+
+      {parcel, _movements} = transfer_parcel(parcel.id, location_b.id)
+
+      conn = get(conn, ~p"/api/parcels/#{parcel}")
+
+      assert %{
+               "id" => ^parcel_id,
+               "description" => "Toaster",
+               "is_delivered" => true,
+               "movements" => [
+                 %{"location" => %{"id" => ^location_a_id}},
+                 %{"location" => %{"id" => ^location_b_id}}
+               ]
+             } =
+               json_response(conn, 200)["data"]
+    end
   end
 
   describe "create parcel" do
@@ -82,5 +110,11 @@ defmodule JaiminhoWeb.ParcelControllerTest do
       |> Logistics.create_parcel()
 
     parcel
+  end
+
+  defp transfer_parcel(parcel_id, to_location_id) do
+    {:ok, parcel, movements} = Logistics.transfer_parcel(parcel_id, to_location_id)
+
+    {parcel, movements}
   end
 end

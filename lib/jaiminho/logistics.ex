@@ -239,5 +239,6 @@ defmodule Jaiminho.Logistics do
     |> with_cte("movement_tree", as: ^movement_tree_query)
     |> where([m], m.parcel_id == ^parcel_id)
     |> preload(:to_location)
+    |> order_by([m], asc: m.id)
   end
 end
