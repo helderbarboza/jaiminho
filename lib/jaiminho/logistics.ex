@@ -104,8 +104,8 @@ defmodule Jaiminho.Logistics do
       {:ok, %{updated_parcel: parcel, movements: movements}} ->
         {:ok, Repo.preload(parcel, [:source, :destination]), movements}
 
-      {:error, _, reason, _} ->
-        {:error, reason}
+      {:error, _failed_operation, failed_value, _changes_so_far} ->
+        {:error, failed_value}
     end
   end
 
