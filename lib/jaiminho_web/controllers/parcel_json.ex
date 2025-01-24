@@ -22,6 +22,7 @@ defmodule JaiminhoWeb.ParcelJSON do
       id: parcel.id,
       description: parcel.description,
       is_delivered: parcel.is_delivered,
+      is_shipped: parcel.is_shipped,
       source: format_location(parcel.source),
       destination: format_location(parcel.destination),
       movements: Enum.map(movements, &format_movement/1)

@@ -164,13 +164,17 @@ defmodule Jaiminho.Logistics do
       })
     end)
     |> Multi.run(:updated_parcel, fn repo, %{parcel: parcel} ->
-      if parcel.destination_id === to_location_id do
-        parcel
-        |> Ecto.Changeset.change(is_delivered: true)
-        |> repo.update()
-      else
-        {:ok, parcel}
-      end
+      changeset =
+        Ecto.Changeset.change(parcel, is_shipped: true)
+
+      changeset =
+        if parcel.destination_id === to_location_id do
+          Ecto.Changeset.change(changeset, is_delivered: true)
+        else
+          changeset
+        end
+
+      repo.update(changeset)
     end)
     |> Multi.all(:movements, movements_of_parcel_query(parcel_id))
   end

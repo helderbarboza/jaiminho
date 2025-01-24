@@ -30,6 +30,7 @@ defmodule JaiminhoWeb.ParcelControllerTest do
                "id" => ^parcel_id,
                "description" => "Chair",
                "is_delivered" => false,
+               "is_shipped" => false,
                "movements" => [
                  %{
                    "location" => %{"id" => ^source_id, "name" => ^source_name},
@@ -41,15 +42,39 @@ defmodule JaiminhoWeb.ParcelControllerTest do
              } = json_response(conn, 200)["data"]
     end
 
-    test "returns correct response when parcel is delivered",
-         %{conn: conn, locations: [location_a, location_b | _]} do
+    test "returns correct response when parcel is shipped",
+         %{conn: conn, locations: [location_a, location_b, location_c | _]} do
       %{id: parcel_id} =
         parcel =
-        create_parcel(%{source_id: location_a.id, destination_id: location_b.id})
+        create_parcel(%{source_id: location_a.id, destination_id: location_c.id})
 
       {_parcel, _movements} = transfer_parcel(parcel.id, location_b.id)
       conn = get(conn, ~p"/api/parcels/#{parcel}")
-      assert %{"id" => ^parcel_id, "is_delivered" => true} = json_response(conn, 200)["data"]
+
+      assert %{
+               "id" => ^parcel_id,
+               "is_delivered" => false,
+               "is_shipped" => true
+             } =
+               json_response(conn, 200)["data"]
+    end
+
+    test "returns correct response when parcel is delivered",
+         %{conn: conn, locations: [location_a, location_b, location_c | _]} do
+      %{id: parcel_id} =
+        parcel =
+        create_parcel(%{source_id: location_a.id, destination_id: location_c.id})
+
+      {_parcel, _movements} = transfer_parcel(parcel.id, location_b.id)
+      {_parcel, _movements} = transfer_parcel(parcel.id, location_c.id)
+      conn = get(conn, ~p"/api/parcels/#{parcel}")
+
+      assert %{
+               "id" => ^parcel_id,
+               "is_delivered" => true,
+               "is_shipped" => true
+             } =
+               json_response(conn, 200)["data"]
     end
 
     test "returns parcel with a single movement when no transfers are made",
@@ -60,7 +85,12 @@ defmodule JaiminhoWeb.ParcelControllerTest do
 
       conn = get(conn, ~p"/api/parcels/#{parcel}")
 
-      assert %{"id" => ^parcel_id, "is_delivered" => false, "movements" => [_movement]} =
+      assert %{
+               "id" => ^parcel_id,
+               "is_delivered" => false,
+               "is_shipped" => false,
+               "movements" => [_movement]
+             } =
                json_response(conn, 200)["data"]
     end
 
@@ -93,6 +123,7 @@ defmodule JaiminhoWeb.ParcelControllerTest do
       assert %{
                "id" => ^parcel_id,
                "is_delivered" => true,
+               "is_shipped" => true,
                "movements" => [
                  %{"location" => %{"id" => ^location_a_id}},
                  %{"location" => %{"id" => ^location_b_id}},
@@ -156,6 +187,7 @@ defmodule JaiminhoWeb.ParcelControllerTest do
                "id" => _id,
                "description" => "Toothbrush",
                "is_delivered" => false,
+               "is_shipped" => false,
                "source" => %{"id" => ^source_id},
                "destination" => %{"id" => ^destination_id},
                "movements" => [

@@ -9,7 +9,8 @@ defmodule Jaiminho.Logistics.Parcel do
 
   typed_schema "parcels" do
     field :description, :string, null: false
-    field :is_delivered, :boolean, default: false
+    field :is_delivered, :boolean, default: false, null: false
+    field :is_shipped, :boolean, default: false, null: false
     belongs_to :source, Location
     belongs_to :destination, Location
 
