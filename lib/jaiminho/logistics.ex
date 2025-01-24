@@ -130,16 +130,6 @@ defmodule Jaiminho.Logistics do
 
       {:ok, parcel}
     end)
-    |> Multi.run(:parcel_is_delivered, fn
-      _repo, %{parcel: %Parcel{is_delivered: true}} -> {:error, :already_delivered}
-      _repo, _changes -> {:ok, nil}
-    end)
-    |> Multi.run(:to_location, fn repo, _changes ->
-      case repo.get(Location, to_location_id) do
-        nil -> {:error, :to_location_not_found}
-        location -> {:ok, location}
-      end
-    end)
     |> Multi.run(:latest_movement, fn repo, _ ->
       movement =
         parcel_id
@@ -148,20 +138,17 @@ defmodule Jaiminho.Logistics do
 
       {:ok, movement}
     end)
-    |> Multi.run(:current_location, fn
-      _repo, %{latest_movement: %{to_location_id: current_location_id}} ->
-        if current_location_id !== to_location_id do
-          {:ok, nil}
-        else
-          {:error, :to_location_and_current_location_must_be_different}
-        end
-    end)
-    |> Multi.insert(:new_movement, fn %{latest_movement: %{id: parent_id}} ->
-      Movement.descendant_node_changeset(%Movement{}, %{
-        parent_id: parent_id,
-        parcel_id: parcel_id,
-        to_location_id: to_location_id
-      })
+    |> Multi.insert(:new_movement, fn
+      %{latest_movement: %{id: parent_id, to_location_id: current_location_id}} ->
+        Movement.descendant_node_changeset(
+          %Movement{},
+          %{
+            parent_id: parent_id,
+            parcel_id: parcel_id,
+            to_location_id: to_location_id
+          },
+          current_location_id
+        )
     end)
     |> Multi.run(:updated_parcel, fn repo, %{parcel: parcel} ->
       changeset =

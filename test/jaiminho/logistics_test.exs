@@ -70,8 +70,10 @@ defmodule Jaiminho.LogisticsTest do
         destination_id: location.id
       }
 
-      assert {:error, %Ecto.Changeset{errors: [destination_id: _]}} =
+      assert {:error, changeset} =
                Logistics.create_parcel(attrs)
+
+      assert "must be not equal to source_id's change value" in errors_on(changeset).destination_id
     end
 
     test "create_parcel/1 with invalid data returns error changeset" do
@@ -105,7 +107,9 @@ defmodule Jaiminho.LogisticsTest do
          } do
       [location_a, location_b | _] = locations
       parcel = create_parcel(%{source_id: location_a.id, destination_id: location_b.id})
-      assert {:error, _changeset} = Logistics.transfer_parcel(parcel.id, location_a.id)
+      assert {:error, changeset} = Logistics.transfer_parcel(parcel.id, location_a.id)
+
+      assert "parcel already on this location" in errors_on(changeset).to_location_id
     end
 
     test "transfer_parcel/2 with a parcel marked as delivered returns changeset error", %{
@@ -118,7 +122,8 @@ defmodule Jaiminho.LogisticsTest do
       assert {:ok, %Parcel{is_delivered: true}, _movements} =
                Logistics.transfer_parcel(parcel.id, location_b.id)
 
-      assert {:error, _changeset} = Logistics.transfer_parcel(parcel.id, location_c.id)
+      assert {:error, changeset} = Logistics.transfer_parcel(parcel.id, location_c.id)
+      assert "parcel already delivered" in errors_on(changeset).parcel_id
     end
 
     test "transfer_parcel/2 using a non existing location returns error", %{
@@ -127,7 +132,8 @@ defmodule Jaiminho.LogisticsTest do
       [location_a, location_b | _] = locations
       parcel = create_parcel(%{source_id: location_a.id, destination_id: location_b.id})
 
-      assert {:error, :to_location_not_found} = Logistics.transfer_parcel(parcel.id, 0)
+      assert {:error, changeset} = Logistics.transfer_parcel(parcel.id, 0)
+      assert "does not exist" in errors_on(changeset).to_location_id
     end
 
     test "change_parcel/1 returns a parcel changeset" do
