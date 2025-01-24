@@ -4,13 +4,6 @@ defmodule JaiminhoWeb.ParcelJSON do
   alias Jaiminho.Logistics.Parcel
 
   @doc """
-  Renders a list of parcels.
-  """
-  def index(%{parcels: parcels, movements: movements}) do
-    %{data: for(parcel <- parcels, do: data(parcel, movements))}
-  end
-
-  @doc """
   Renders a single parcel.
   """
   def show(%{parcel: parcel, movements: movements}) do
