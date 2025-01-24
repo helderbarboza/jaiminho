@@ -109,7 +109,7 @@ defmodule Jaiminho.LogisticsTest do
       parcel = create_parcel(%{source_id: location_a.id, destination_id: location_b.id})
       assert {:error, changeset} = Logistics.transfer_parcel(parcel.id, location_a.id)
 
-      assert "parcel already on this location" in errors_on(changeset).to_location_id
+      assert "same location as the current one" in errors_on(changeset).to_location_id
     end
 
     test "transfer_parcel/2 with a parcel marked as delivered returns changeset error", %{
@@ -123,7 +123,7 @@ defmodule Jaiminho.LogisticsTest do
                Logistics.transfer_parcel(parcel.id, location_b.id)
 
       assert {:error, changeset} = Logistics.transfer_parcel(parcel.id, location_c.id)
-      assert "parcel already delivered" in errors_on(changeset).parcel_id
+      assert "has already been delivered" in errors_on(changeset).parcel_id
     end
 
     test "transfer_parcel/2 using a non existing location returns error", %{

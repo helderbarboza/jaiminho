@@ -47,7 +47,7 @@ defmodule Jaiminho.Logistics.Movement do
   defp validate_against_current_location(changeset, current_location_id) do
     validate_change(changeset, :to_location_id, fn
       :to_location_id, ^current_location_id ->
-        [to_location_id: {"parcel already on this location", []}]
+        [to_location_id: {"same location as the current one", []}]
 
       :to_location_id, _to_location_id ->
         []
@@ -62,7 +62,7 @@ defmodule Jaiminho.Logistics.Movement do
       |> Repo.one!()
 
     if is_delivered do
-      add_error(changeset, :parcel_id, "parcel already delivered")
+      add_error(changeset, :parcel_id, "has already been delivered")
     else
       changeset
     end
