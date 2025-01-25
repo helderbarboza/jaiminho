@@ -8,35 +8,9 @@ defmodule Jaiminho.Logistics do
   alias Jaiminho.Repo
   alias Jaiminho.Logistics.{Location, Movement, Parcel}
 
-  @doc """
-  Gets a single location.
-
-  Raises `Ecto.NoResultsError` if the Location does not exist.
-
-  ## Examples
-
-      iex> get_location!(123)
-      %Location{id: 123, name: "Somewhere over the rainbow"}
-
-      iex> get_location!(456)
-      ** (Ecto.NoResultsError)
-
-  """
   @spec get_location!(pos_integer()) :: Location.t()
   def get_location!(id), do: Repo.get!(Location, id)
 
-  @doc """
-  Creates a location.
-
-  ## Examples
-
-      iex> create_location(%{field: value})
-      {:ok, %Location{}}
-
-      iex> create_location(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
-  """
   @spec create_location() :: {:ok, Location.t()} | {:error, Ecto.Changeset.t()}
   def create_location(attrs \\ %{}) do
     %Location{}
@@ -76,19 +50,6 @@ defmodule Jaiminho.Logistics do
     |> Repo.all()
   end
 
-  @doc """
-  Creates a parcel.
-
-  ## Examples
-
-      iex> create_parcel(%{field: value})
-      {:ok, %Parcel{}}
-
-      iex> create_parcel(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
-  """
-
   @spec create_parcel(map()) :: {:error, any()} | {:ok, Parcel.t()}
   def create_parcel(attrs) do
     case Repo.transaction(create_parcel_operations(attrs)) do
@@ -109,15 +70,6 @@ defmodule Jaiminho.Logistics do
     end
   end
 
-  @doc """
-  Returns an `%Ecto.Changeset{}` for tracking parcel changes.
-
-  ## Examples
-
-      iex> change_parcel(parcel)
-      %Ecto.Changeset{data: %Parcel{}}
-
-  """
   @spec change_parcel(Parcel.t(), map()) :: Ecto.Changeset.t()
   def change_parcel(%Parcel{} = parcel, attrs \\ %{}) do
     Parcel.changeset(parcel, attrs)
