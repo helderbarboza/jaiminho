@@ -12,6 +12,7 @@ defmodule Jaiminho.Logistics do
   def get_location!(id), do: Repo.get!(Location, id)
 
   @spec create_location() :: {:ok, Location.t()} | {:error, Ecto.Changeset.t()}
+  @spec create_location(map()) :: {:ok, Location.t()} | {:error, Ecto.Changeset.t()}
   def create_location(attrs \\ %{}) do
     %Location{}
     |> Location.changeset(attrs)
