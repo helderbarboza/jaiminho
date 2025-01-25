@@ -7,6 +7,7 @@ defmodule JaiminhoWeb.LocationController do
 
   def show(conn, %{"id" => id}) do
     location = Logistics.get_location!(id)
-    render(conn, :show, location: location)
+    parcels = Logistics.list_parcels_at_location(id)
+    render(conn, :show, location: location, parcels: parcels)
   end
 end

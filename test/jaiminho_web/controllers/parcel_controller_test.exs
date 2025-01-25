@@ -48,7 +48,7 @@ defmodule JaiminhoWeb.ParcelControllerTest do
         parcel =
         create_parcel(%{source_id: location_a.id, destination_id: location_c.id})
 
-      {_parcel, _movements} = transfer_parcel(parcel.id, location_b.id)
+      {_parcel, _movements} = transfer_parcel(parcel, location_b.id)
       conn = get(conn, ~p"/api/parcels/#{parcel}")
 
       assert %{
@@ -65,8 +65,8 @@ defmodule JaiminhoWeb.ParcelControllerTest do
         parcel =
         create_parcel(%{source_id: location_a.id, destination_id: location_c.id})
 
-      {_parcel, _movements} = transfer_parcel(parcel.id, location_b.id)
-      {_parcel, _movements} = transfer_parcel(parcel.id, location_c.id)
+      {_parcel, _movements} = transfer_parcel(parcel, location_b.id)
+      {_parcel, _movements} = transfer_parcel(parcel, location_c.id)
       conn = get(conn, ~p"/api/parcels/#{parcel}")
 
       assert %{
@@ -100,7 +100,7 @@ defmodule JaiminhoWeb.ParcelControllerTest do
       end
     end
 
-    test "renders errors when the parcel ID is not an integer", %{conn: conn} do
+    test "return 400 when the parcel ID is not an integer", %{conn: conn} do
       assert_error_sent 400, fn ->
         get(conn, ~p"/api/parcels/foo")
       end
@@ -115,8 +115,8 @@ defmodule JaiminhoWeb.ParcelControllerTest do
         parcel =
         create_parcel(%{source_id: location_a.id, destination_id: location_c.id})
 
-      {_parcel, _movements} = transfer_parcel(parcel.id, location_b.id)
-      {_parcel, _movements} = transfer_parcel(parcel.id, location_c.id)
+      {_parcel, _movements} = transfer_parcel(parcel, location_b.id)
+      {_parcel, _movements} = transfer_parcel(parcel, location_c.id)
 
       conn = get(conn, ~p"/api/parcels/#{parcel}")
 
@@ -144,11 +144,11 @@ defmodule JaiminhoWeb.ParcelControllerTest do
         parcel =
         create_parcel(%{source_id: location_a.id, destination_id: location_d.id})
 
-      {_parcel, _movements} = transfer_parcel(parcel.id, location_b.id)
-      {_parcel, _movements} = transfer_parcel(parcel.id, location_c.id)
-      {_parcel, _movements} = transfer_parcel(parcel.id, location_b.id)
-      {_parcel, _movements} = transfer_parcel(parcel.id, location_c.id)
-      {_parcel, _movements} = transfer_parcel(parcel.id, location_d.id)
+      {_parcel, _movements} = transfer_parcel(parcel, location_b.id)
+      {_parcel, _movements} = transfer_parcel(parcel, location_c.id)
+      {_parcel, _movements} = transfer_parcel(parcel, location_b.id)
+      {_parcel, _movements} = transfer_parcel(parcel, location_c.id)
+      {_parcel, _movements} = transfer_parcel(parcel, location_d.id)
 
       conn = get(conn, ~p"/api/parcels/#{parcel}")
 
@@ -348,11 +348,14 @@ defmodule JaiminhoWeb.ParcelControllerTest do
   end
 
   describe "transfer" do
-    test "renders parcel with its updated location", %{conn: conn} do
-      %{id: source_id} = create_location(%{name: "São Paulo - SP"})
-      %{id: destination_id} = create_location(%{name: "Manaus - AM"})
+    setup [:locations]
 
-      %{id: parcel_id} =
+    test "successfully transfers parcel to a valid location",
+         %{conn: conn, locations: [source, destination | _]} do
+      %{id: source_id} = source
+      %{id: destination_id} = destination
+
+      %{id: parcel_id, is_delivered: false} =
         parcel =
         create_parcel(%{
           description: "Washing machine",
@@ -372,6 +375,275 @@ defmodule JaiminhoWeb.ParcelControllerTest do
                ]
              } = json_response(conn, 200)["data"]
     end
+
+    test "adds new movement for each transfer",
+         %{conn: conn, locations: [location_a, location_b, location_c | _]} do
+      %{id: location_a_id} = location_a
+      %{id: location_b_id} = location_b
+      %{id: location_c_id} = location_c
+
+      parcel =
+        create_parcel(%{
+          description: "Stool",
+          source_id: location_a_id,
+          destination_id: location_c_id
+        })
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_b_id})
+
+      assert [
+               %{"location" => %{"id" => ^location_a_id}},
+               %{"location" => %{"id" => ^location_b_id}}
+             ] = json_response(conn, 200)["data"]["movements"]
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_c_id})
+
+      assert [
+               %{"location" => %{"id" => ^location_a_id}},
+               %{"location" => %{"id" => ^location_b_id}},
+               %{"location" => %{"id" => ^location_c_id}}
+             ] = json_response(conn, 200)["data"]["movements"]
+    end
+
+    test "prevents transfer when parcel has already been delivered",
+         %{conn: conn, locations: [location_a, location_b, location_c | _]} do
+      %{id: location_a_id} = location_a
+      %{id: location_b_id} = location_b
+      %{id: location_c_id} = location_c
+
+      parcel =
+        create_parcel(%{
+          description: "Radio receiver",
+          source_id: location_a_id,
+          destination_id: location_b_id
+        })
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_b_id})
+      body = json_response(conn, 200)["data"]
+      assert body["is_delivered"] == true
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_c_id})
+      errors = json_response(conn, 422)["errors"]
+      assert "has already been delivered" in errors["parcel_id"]
+    end
+
+    test "ensures 'is_delivered' remains 'false' for intermediate transfers",
+         %{conn: conn, locations: [location_a, location_b, location_c | _]} do
+      %{id: location_a_id} = location_a
+      %{id: location_b_id} = location_b
+      %{id: location_c_id} = location_c
+
+      parcel =
+        create_parcel(%{
+          description: "Carpet",
+          source_id: location_a_id,
+          destination_id: location_c_id
+        })
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_b_id})
+      body = json_response(conn, 200)["data"]
+      assert body["is_delivered"] == false
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_c_id})
+      json_response(conn, 200)
+    end
+
+    test "prevents transfer when the request body contains invalid JSON",
+         %{conn: conn, locations: [location_a, location_b | _]} do
+      %{id: location_a_id} = location_a
+      %{id: location_b_id} = location_b
+
+      parcel =
+        create_parcel(%{
+          description: "Dishwasher",
+          source_id: location_a_id,
+          destination_id: location_b_id
+        })
+
+      assert_error_sent 400, fn ->
+        post(conn, ~p"/api/parcels/#{parcel}/transfer", %{foo: "bar"})
+      end
+    end
+
+    test "prevents transfer when 'to_location_id' is a non-integer value",
+         %{conn: conn, locations: [location_a, location_b | _]} do
+      %{id: location_a_id} = location_a
+      %{id: location_b_id} = location_b
+
+      parcel =
+        create_parcel(%{
+          description: "Vacuum cleaner",
+          source_id: location_a_id,
+          destination_id: location_b_id
+        })
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: "invalid"})
+      assert "is invalid" in json_response(conn, 422)["errors"]["to_location_id"]
+    end
+
+    test "allows cyclic transfers",
+         %{conn: conn, locations: [location_a, location_b, location_c | _]} do
+      %{id: location_a_id} = location_a
+      %{id: location_b_id} = location_b
+      %{id: location_c_id} = location_c
+
+      parcel =
+        create_parcel(%{
+          description: "Workbench",
+          source_id: location_a_id,
+          destination_id: location_c_id
+        })
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_b_id})
+      json_response(conn, 200)
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_a_id})
+      json_response(conn, 200)
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_b_id})
+      json_response(conn, 200)
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_a_id})
+      json_response(conn, 200)
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_b_id})
+      json_response(conn, 200)
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_c_id})
+      body = json_response(conn, 200)["data"]
+
+      assert [
+               ^location_a_id,
+               ^location_b_id,
+               ^location_a_id,
+               ^location_b_id,
+               ^location_a_id,
+               ^location_b_id,
+               ^location_c_id
+             ] = for(movement <- body["movements"], do: movement["location"]["id"])
+    end
+
+    test "allows concurrent transfers with identical source and destination locations",
+         %{conn: conn, locations: [location_a, location_b, location_c | _]} do
+      %{id: location_a_id} = location_a
+      %{id: location_b_id} = location_b
+      %{id: location_c_id} = location_c
+
+      parcel_x =
+        create_parcel(%{
+          description: "Chopsticks",
+          source_id: location_a_id,
+          destination_id: location_c_id
+        })
+
+      parcel_y =
+        create_parcel(%{
+          description: "Spoon",
+          source_id: location_a_id,
+          destination_id: location_c_id
+        })
+
+      conn = post(conn, ~p"/api/parcels/#{parcel_x}/transfer", %{location_id: location_b_id})
+      json_response(conn, 200)
+
+      conn = post(conn, ~p"/api/parcels/#{parcel_y}/transfer", %{location_id: location_b_id})
+      json_response(conn, 200)
+
+      conn = post(conn, ~p"/api/parcels/#{parcel_x}/transfer", %{location_id: location_c_id})
+      body_x = json_response(conn, 200)["data"]
+
+      conn = post(conn, ~p"/api/parcels/#{parcel_y}/transfer", %{location_id: location_c_id})
+      body_y = json_response(conn, 200)["data"]
+
+      assert length(body_x["movements"]) == 3
+      assert length(body_y["movements"]) == 3
+
+      # It would be nice to `assert body_x["movements"] !== body_y["movements"]` here,
+      # but we can't rely on `transfered_at` values because the transfers can happen on the exact
+      # same time, resulting on false-positives. I've also considered adding a `Process.sleep/1`,
+      # but it would slow down the tests 🤨
+    end
+
+    test "ensures 'is_shipped' is updated to 'true' when the first transfer occurs",
+         %{conn: conn, locations: [location_a, location_b, location_c | _]} do
+      %{id: location_a_id} = location_a
+      %{id: location_b_id} = location_b
+      %{id: location_c_id} = location_c
+
+      %{is_shipped: false} =
+        parcel =
+        create_parcel(%{
+          description: "Air fryer",
+          source_id: location_a_id,
+          destination_id: location_c_id
+        })
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_b_id})
+      body = json_response(conn, 200)["data"]
+      assert body["is_shipped"] == true
+    end
+
+    test "prevents transfer to the same location as the current one",
+         %{conn: conn, locations: [location_a, location_b, location_c | _]} do
+      %{id: location_a_id} = location_a
+      %{id: location_b_id} = location_b
+      %{id: location_c_id} = location_c
+
+      parcel =
+        create_parcel(%{
+          description: "Closet",
+          source_id: location_a_id,
+          destination_id: location_c_id
+        })
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_b_id})
+      json_response(conn, 200)["data"]
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_b_id})
+      errors = json_response(conn, 422)["errors"]
+      assert "same location as the current one" in errors["to_location_id"]
+    end
+
+    test "prevents transfer when 'to_location_id' does not exist",
+         %{conn: conn, locations: [location_a, location_b | _]} do
+      %{id: location_a_id} = location_a
+      %{id: location_b_id} = location_b
+
+      parcel =
+        create_parcel(%{
+          description: "Bed",
+          source_id: location_a_id,
+          destination_id: location_b_id
+        })
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: 0})
+      errors = json_response(conn, 422)["errors"]
+      assert "does not exist" in errors["to_location_id"]
+    end
+
+    test "fails when the transfer location is the same as the current location",
+         %{conn: conn, locations: [location_a, location_b | _]} do
+      %{id: location_a_id} = location_a
+      %{id: location_b_id} = location_b
+
+      parcel =
+        create_parcel(%{
+          description: "Fork",
+          source_id: location_a_id,
+          destination_id: location_b_id
+        })
+
+      conn = post(conn, ~p"/api/parcels/#{parcel}/transfer", %{location_id: location_a_id})
+      errors = json_response(conn, 422)["errors"]
+      assert "same location as the current one" in errors["to_location_id"]
+    end
+
+    test "fails when the parcel ID does not exist",
+         %{conn: conn, locations: [location | _]} do
+      assert_error_sent 404, fn ->
+        post(conn, ~p"/api/parcels/#{0}/transfer", %{location_id: location.id})
+      end
+    end
   end
 
   defp create_parcel(attrs) do
@@ -385,8 +657,9 @@ defmodule JaiminhoWeb.ParcelControllerTest do
     parcel
   end
 
-  defp transfer_parcel(parcel_id, to_location_id) do
-    {:ok, parcel, movements} = Logistics.transfer_parcel(parcel_id, to_location_id)
+  defp transfer_parcel(parcel, to_location_id)
+       when is_struct(parcel) and is_integer(to_location_id) do
+    {:ok, parcel, movements} = Logistics.transfer_parcel(parcel, to_location_id)
 
     {parcel, movements}
   end

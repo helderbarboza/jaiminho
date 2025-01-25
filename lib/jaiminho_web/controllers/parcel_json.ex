@@ -16,20 +16,20 @@ defmodule JaiminhoWeb.ParcelJSON do
       description: parcel.description,
       is_delivered: parcel.is_delivered,
       is_shipped: parcel.is_shipped,
-      source: format_location(parcel.source),
-      destination: format_location(parcel.destination),
-      movements: Enum.map(movements, &format_movement/1)
+      source: location_data(parcel.source),
+      destination: location_data(parcel.destination),
+      movements: Enum.map(movements, &movement_data/1)
     }
   end
 
-  defp format_movement(%Movement{} = movement) do
+  defp movement_data(%Movement{} = movement) do
     %{
       transfered_at: movement.inserted_at,
       location: %{id: movement.to_location.id, name: movement.to_location.name}
     }
   end
 
-  defp format_location(%Location{} = location) do
+  defp location_data(%Location{} = location) do
     %{
       id: location.id,
       name: location.name

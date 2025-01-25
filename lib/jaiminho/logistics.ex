@@ -97,10 +97,10 @@ defmodule Jaiminho.Logistics do
     end
   end
 
-  @spec transfer_parcel(pos_integer(), pos_integer()) ::
+  @spec transfer_parcel(Parcel.t(), Location.t()) ::
           {:error, any()} | {:ok, Parcel.t(), [Movement.t()]}
-  def transfer_parcel(parcel_id, to_location_id) do
-    case Repo.transaction(transfer_parcel_operations(parcel_id, to_location_id)) do
+  def transfer_parcel(parcel, to_location_id) do
+    case Repo.transaction(transfer_parcel_operations(parcel, to_location_id)) do
       {:ok, %{updated_parcel: parcel, movements: movements}} ->
         {:ok, Repo.preload(parcel, [:source, :destination]), movements}
 
@@ -123,16 +123,11 @@ defmodule Jaiminho.Logistics do
     Parcel.changeset(parcel, attrs)
   end
 
-  defp transfer_parcel_operations(parcel_id, to_location_id) do
+  defp transfer_parcel_operations(parcel, to_location_id) do
     Multi.new()
-    |> Multi.run(:parcel, fn repo, _changes ->
-      parcel = repo.get(Parcel, parcel_id)
-
-      {:ok, parcel}
-    end)
     |> Multi.run(:latest_movement, fn repo, _ ->
       movement =
-        parcel_id
+        parcel.id
         |> latest_movement_of_parcel_query()
         |> repo.one()
 
@@ -144,13 +139,13 @@ defmodule Jaiminho.Logistics do
           %Movement{},
           %{
             parent_id: parent_id,
-            parcel_id: parcel_id,
+            parcel_id: parcel.id,
             to_location_id: to_location_id
           },
           current_location_id
         )
     end)
-    |> Multi.run(:updated_parcel, fn repo, %{parcel: parcel} ->
+    |> Multi.run(:updated_parcel, fn repo, _changes ->
       changeset =
         Ecto.Changeset.change(parcel, is_shipped: true)
 
@@ -163,7 +158,7 @@ defmodule Jaiminho.Logistics do
 
       repo.update(changeset)
     end)
-    |> Multi.all(:movements, movements_of_parcel_query(parcel_id))
+    |> Multi.all(:movements, movements_of_parcel_query(parcel.id))
   end
 
   defp create_parcel_operations(attrs) do

@@ -1,7 +1,7 @@
 defmodule JaiminhoWeb.LocationControllerTest do
   use JaiminhoWeb.ConnCase
-
   alias Jaiminho.Logistics
+  alias Jaiminho.Logistics.Location
 
   setup %{conn: conn} do
     {:ok, conn: put_req_header(conn, "accept", "application/json")}
@@ -9,9 +9,9 @@ defmodule JaiminhoWeb.LocationControllerTest do
 
   describe "show" do
     test "renders a location", %{conn: conn} do
-      %{id: id} = location = create_location()
+      %Location{id: id, name: name} = location = create_location()
       conn = get(conn, ~p"/api/locations/#{location}")
-      assert %{"id" => ^id} = json_response(conn, 200)["data"]
+      assert %{"id" => ^id, "name" => ^name, "parcels" => []} = json_response(conn, 200)["data"]
     end
   end
 

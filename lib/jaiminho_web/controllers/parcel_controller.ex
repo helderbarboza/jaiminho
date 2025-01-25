@@ -24,7 +24,9 @@ defmodule JaiminhoWeb.ParcelController do
   end
 
   def transfer(conn, %{"id" => id, "location_id" => location_id}) do
-    with {:ok, %Parcel{} = parcel, movements} <- Logistics.transfer_parcel(id, location_id) do
+    parcel = Logistics.get_parcel!(id)
+
+    with {:ok, %Parcel{} = parcel, movements} <- Logistics.transfer_parcel(parcel, location_id) do
       render(conn, :show, parcel: parcel, movements: movements)
     end
   end
