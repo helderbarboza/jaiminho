@@ -1,7 +1,6 @@
 defmodule JaiminhoWeb.ParcelControllerTest do
   use JaiminhoWeb.ConnCase
-
-  alias Jaiminho.Logistics
+  import Jaiminho.LogisticsFixtures
 
   @invalid_attrs %{description: nil, is_delivered: nil}
 
@@ -644,43 +643,5 @@ defmodule JaiminhoWeb.ParcelControllerTest do
         post(conn, ~p"/api/parcels/#{0}/transfer", %{location_id: location.id})
       end
     end
-  end
-
-  defp create_parcel(attrs) do
-    {:ok, parcel} =
-      attrs
-      |> Enum.into(%{
-        description: "my parcel"
-      })
-      |> Logistics.create_parcel()
-
-    parcel
-  end
-
-  defp transfer_parcel(parcel, to_location_id)
-       when is_struct(parcel) and is_integer(to_location_id) do
-    {:ok, parcel, movements} = Logistics.transfer_parcel(parcel, to_location_id)
-
-    {parcel, movements}
-  end
-
-  defp create_location(attrs \\ %{}) do
-    {:ok, location} =
-      attrs
-      |> Enum.into(%{name: "My location"})
-      |> Logistics.create_location()
-
-    location
-  end
-
-  defp locations(_context) do
-    [
-      locations: [
-        create_location(%{name: "Location A"}),
-        create_location(%{name: "Location B"}),
-        create_location(%{name: "Location C"}),
-        create_location(%{name: "Location D"})
-      ]
-    ]
   end
 end
