@@ -51,7 +51,8 @@ defmodule Jaiminho.MixProject do
       {:bandit, "~> 1.5"},
       {:excoveralls, "~> 0.18", only: :test},
       {:typed_ecto_schema, "~> 0.4.1", runtime: false},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
