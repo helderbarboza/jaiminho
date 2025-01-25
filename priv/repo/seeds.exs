@@ -32,7 +32,7 @@ require Logger
 Repo.transaction(fn ->
   Logger.info("Creating locations...")
 
-  Enum.each(1..20, fn x ->
+  Enum.each(1..200, fn x ->
     Repo.insert!(%Location{name: "Location #{Seeds.to_bb26(x)}"})
   end)
 
